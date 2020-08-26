@@ -8,3 +8,16 @@ document.querySelector("#Form-message").addEventListener("submit", (event) => {
     var message = event.target.elements.message.value
     socket.emit("sendMessage", message)
 })
+
+document.querySelector("#send-location").addEventListener("click", () => {
+    if (!navigator.geolocation) {
+        return alert("Location is not supported by your browser")
+    }
+    navigator.geolocation.getCurrentPosition((position) => {
+        socket.emit("sendLocation", {
+            lat: position.coords.latitude,
+            long: position.coords.longitude
+        })
+
+    })
+})
