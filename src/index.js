@@ -32,9 +32,11 @@ io.on("connection", (socket) => {
         io.emit("message", "A user has left the chat")
     })
     socket.on("sendLocation", (position, callback) => {
-        io.emit("message", `https://www.google.com/maps?q=${position.lat},${position.long}`)
+        io.emit("locationMessage", `https://www.google.com/maps?q=${position.lat},${position.long}`)
         callback()
     })
+
+
 
 
 
