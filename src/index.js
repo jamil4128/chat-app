@@ -4,6 +4,7 @@ const express = require("express")
 const socketio = require("socket.io")
 const Filter = require("bad-words")
 const { generateMessage, generateUrl } = require("./utils/message")
+const { addUser, removeUser, getUser, getUsersInRoom } = require("./utils/user")
 
 const app = express()
 const server = http.createServer(app)
@@ -17,29 +18,57 @@ app.use(express.static(publicDirectorypath))
 io.on("connection", (socket) => {
     console.log("New website connection")
 
-    socket.emit("message", generateMessage("Welcome!"))
-    socket.broadcast.emit("message", generateMessage("A new user has joined"))
+
+    socket.on('join', ({ username, room }, callback) => {
+        const { error, user } = addUser({ id: socket.id, username, room })
+
+        if (error) {
+            return callback(error)
+        }
+
+        socket.join(user.room)
+
+        socket.emit('message', generateMessage("Admin", 'Welcome!'))
+        socket.broadcast.to(user.room).emit('message', generateMessage("Admin", `${user.username} has joined!`))
+        io.to(user.room).emit("roomData", {
+            room: user.room,
+            users: getUsersInRoom(user.room)
+        })
+
+        callback()
+    })
 
     socket.on("sendMessage", (message, callback) => {
-        const filter = new Filter()
-        if (filter.isProfane(message)) {
-            return callback("Profinity is not allowed")
+        const user = getUser(socket.id)
+        if (user) {
+            const filter = new Filter()
+            if (filter.isProfane(message)) {
+                return callback("Profinity is not allowed")
+            }
+            io.to(user.room).emit("message", generateMessage(user.username, message))
+            callback()
         }
-        io.emit("message", generateMessage(message))
-        callback()
 
     })
     socket.on("disconnect", () => {
-        io.emit("message", generateMessage("A user has left the chat"))
+        const user = removeUser(socket.id)
+        if (user) {
+            io.to(user.room).emit("message", generateMessage("Admin", `${user.username} has left the chat`))
+            io.to(user.room).emit("roomData", {
+                room: user.room,
+                users: getUsersInRoom(user.room)
+            })
+        }
+
+
     })
     socket.on("sendLocation", (position, callback) => {
-        io.emit("locationMessage", generateUrl(`https://www.google.com/maps?q=${position.lat},${position.long}`))
-        callback()
+        const user = getUser(socket.id)
+        if (user) {
+            io.to(user.room).emit("locationMessage", generateUrl(user.username, `https://www.google.com/maps?q=${position.lat},${position.long}`))
+            callback()
+        }
     })
-
-
-
-
 
 
 })
